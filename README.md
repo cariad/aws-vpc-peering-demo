@@ -25,13 +25,17 @@ We're going to deploy the following scenario:
     1. SSH into the EC2 instance.
     1. Install `psql`:
 
-            sudo yum install postgresql -y
+        ```bash
+        sudo yum install postgresql -y
+        ```
 
     1. Use `psql` to connect to the database in the _requestor_ account.
         - You can get the database's hostname from the outputs of the `requester.cf.yml` stack.
         - The username is `main` and the password is `topsecret`.
 
-                psql --dbname=postgres --host=rd101gx8u3uzcb2.ceuxngm9dcdd.eu-west-1.rds.amazonaws.com --user=main
+        ```bash
+        psql --dbname=postgres --host=rd101gx8u3uzcb2.ceuxngm9dcdd.eu-west-1.rds.amazonaws.com --user=main
+        ```
 
 1. **Congratulations!** You just connected to a private database across accounts via VPC peering. 🎉
     - If it _didn't_ work then you're very welcome to raise an issue and share the details, but I'm afraid I can't promise any help. This is essentially a proof-of-concept shared in good faith.
