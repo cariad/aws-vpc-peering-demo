@@ -1,0 +1,161 @@
+Description: github.com/cariad/aws-vpc-peering-demo - Requestor VPC and database
+
+Parameters:
+  AcceptorAccountId:
+    Type: String
+  AcceptorRegion:
+    Type: String
+  AcceptorVpc:
+    Type: String
+
+Resources:
+
+  # EC2 / ROUTES ###############################################################
+
+  RouteToAcceptor:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 10.0.0.0/16
+      RouteTableId:
+        Ref: RouteTable
+      VpcPeeringConnectionId:
+        Ref: VpcPeeringConnection
+
+  # EC2 / ROUTE TABLES #########################################################
+
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: Vpc
+
+  # EC2 / SECURITY GROUPS ######################################################
+
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allows PostgreSQL ingress from local VPC
+      SecurityGroupIngress:
+        - Description: Aurora PostgreSQL from this VPC
+          CidrIp: 10.1.0.0/16
+          IpProtocol: TCP
+          FromPort: 5432
+          ToPort: 5432
+        - Description: Allows PostgreSQL ingress from remote VPC
+          CidrIp: 10.0.0.0/16
+          IpProtocol: TCP
+          FromPort: 5432
+          ToPort: 5432
+      VpcId:
+        Ref: Vpc
+
+  # EC2 / SUBNETS #############################################################
+
+  SubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone:
+        Fn::Sub: ${AWS::Region}a
+      CidrBlock: 10.1.0.0/24
+      MapPublicIpOnLaunch: true
+      VpcId:
+        Ref: Vpc
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Sub: VPC peering demo (${AWS::Region}a)
+
+  SubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone:
+        Fn::Sub: ${AWS::Region}b
+      CidrBlock: 10.1.1.0/24
+      MapPublicIpOnLaunch: true
+      VpcId:
+        Ref: Vpc
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Sub: VPC peering demo (${AWS::Region}b)
+
+  # EC2 / SUBNET ROUTE TABLE ASSOCIATIONS ######################################
+
+  RoutingAssociationSubnetA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: SubnetA
+      RouteTableId:
+        Ref: RouteTable
+
+  RoutingAssociationSubnetB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: SubnetB
+      RouteTableId:
+        Ref: RouteTable
+
+  # EC2 / VPCs #################################################################
+
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.1.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: VPC peering demo (requester)
+
+  # EC2 / VPC PEERING CONNECTIONS ##############################################
+
+  VpcPeeringConnection:
+    Type: AWS::EC2::VPCPeeringConnection
+    Properties:
+      PeerOwnerId:
+        Ref: AcceptorAccountId
+      PeerRegion:
+        Ref: AcceptorRegion
+      PeerRoleArn:
+        Fn::Sub: arn:aws:iam::${AcceptorAccountId}:role/peer-acceptor.aws-vpc-peering-demo.cariad.github
+      PeerVpcId:
+        Ref: AcceptorVpc
+      VpcId:
+        Ref: Vpc
+
+  # RDS / DATABASE INSTANCE ####################################################
+
+  Database:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllocatedStorage: 20
+      BackupRetentionPeriod: 0
+      DBInstanceClass: db.t3.micro
+      DBSubnetGroupName:
+        Ref: DatabaseSubnetGroup
+      Engine: postgres
+      EngineVersion: "11.9"
+      MasterUsername: main
+      MasterUserPassword: topsecret
+      PubliclyAccessible: false
+      VPCSecurityGroups:
+        - Ref: DatabaseSecurityGroup
+
+  # RDS / DATABASE SUBNET GROUPS ###############################################
+
+  DatabaseSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: github.com/cariad/aws-vpc-peering-demo
+      SubnetIds:
+        - Ref: SubnetA
+        - Ref: SubnetB
+
+# OUTPUTS ######################################################################
+
+Outputs:
+  DatabaseEndpoint:
+    Value:
+      Fn::Sub: ${Database.Endpoint.Address}
