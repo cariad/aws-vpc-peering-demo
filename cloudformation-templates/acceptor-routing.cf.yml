@@ -1,0 +1,15 @@
+Description: github.com/cariad/aws-vpc-peering-demo - Route to requester
+
+Parameters:
+  VpcPeeringConnectionId:
+    Type: String
+
+Resources:
+  RouteToRequester:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 10.1.0.0/16
+      RouteTableId:
+        Fn::ImportValue: route-table:aws-vpc-peering-demo:cariad:github
+      VpcPeeringConnectionId:
+        Ref: VpcPeeringConnectionId
