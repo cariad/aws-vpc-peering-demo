@@ -1,0 +1,128 @@
+Description: github.com/cariad/aws-vpc-peering-demo - Acceptor VPC
+
+Parameters:
+  RequesterAccountId:
+    Type: String
+
+Resources:
+
+  # EC2 / INTERNET GATEWAYS ####################################################
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  # EC2 / ROUTES ###############################################################
+
+  RouteToInternetGateway:
+    Type: AWS::EC2::Route
+    DependsOn:
+      - InternetGatewayAttachment
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId:
+        Ref: InternetGateway
+      RouteTableId:
+        Ref: RouteTable
+
+  # EC2 / ROUTE TABLES #########################################################
+
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: Vpc
+
+  # EC2 / SUBNETS ##############################################################
+
+  Subnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone:
+        Fn::Sub: ${AWS::Region}a
+      CidrBlock: 10.0.0.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: github.com/cariad/aws-vpc-peering-demo
+      VpcId:
+        Ref: Vpc
+
+  # EC2 / SUBNET ROUTE TABLE ASSOCIATIONS ######################################
+
+  SubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: Subnet
+      RouteTableId:
+        Ref: RouteTable
+
+  # EC2 / VPCs #################################################################
+
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: github.com/cariad/aws-vpc-peering-demo
+
+  # EC2 / VPC GATEWAY ATTACHMENTS ##############################################
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId:
+        Ref: Vpc
+      InternetGatewayId:
+        Ref: InternetGateway
+
+  # IAM / ROLES ################################################################
+
+  VpcPeerAcceptor:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Principal:
+              AWS:
+                Fn::Sub: arn:aws:iam::${RequesterAccountId}:role/requester-deployer.aws-vpc-peering-demo.cariad.github
+      Description: Allows acceptance of VPC peering
+      Policies:
+        - PolicyName: AcceptPeeringConnections
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Action: ec2:AcceptVpcPeeringConnection
+                Effect: Allow
+                Resource:
+                  # Allow peering connections only in this account and region.
+                  - Fn::Sub: arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:vpc-peering-connection/*
+                  # Only peering only with the VPC in this stack.
+                  - Fn::Sub: arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:vpc/${Vpc}
+      RoleName: peer-acceptor.aws-vpc-peering-demo.cariad.github
+
+# OUTPUTS ######################################################################
+
+Outputs:
+  AcceptorAccountId:
+    Value:
+      Fn::Sub: ${AWS::AccountId}
+
+  AcceptorRegion:
+    Value:
+      Fn::Sub: ${AWS::Region}
+
+  AcceptorVpc:
+    Value:
+      Ref: Vpc
+
+  RouteTable:
+    Export:
+      Name: route-table:aws-vpc-peering-demo:cariad:github
+    Value:
+      Ref: RouteTable

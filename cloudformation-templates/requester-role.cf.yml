@@ -1,0 +1,36 @@
+Description: github.com/cariad/aws-vpc-peering-demo - Requester role
+
+Parameters:
+  AcceptorAccountId:
+    Type: String
+
+Resources:
+  Deployer:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Principal:
+              Service: cloudformation.amazonaws.com
+      Description: Allows a peer-requesting VPC to be deployed
+      Policies:
+        - PolicyName: AllowDeployment
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Action:
+                  - ec2:*
+                  - rds:*
+                Effect: Allow
+                Resource: "*"
+        - PolicyName: AllowPeeringAcceptance
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Action: sts:AssumeRole
+                Effect: Allow
+                Resource:
+                  Fn::Sub: arn:aws:iam::${AcceptorAccountId}:role/peer-acceptor.aws-vpc-peering-demo.cariad.github
+      RoleName: requester-deployer.aws-vpc-peering-demo.cariad.github
