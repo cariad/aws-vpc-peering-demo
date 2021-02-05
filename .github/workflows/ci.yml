@@ -36,6 +36,14 @@ jobs:
           path: aws-vpc-peering-demo.zip
           retention-days: 1
 
+  test_publish:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Download build distributable
+        uses: actions/download-artifact@v2
+        with:
+          name: distributable
+
   publish:
     if: startsWith(github.ref, 'refs/tags')
     runs-on: ubuntu-20.04
